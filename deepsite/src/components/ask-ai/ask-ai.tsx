@@ -1,12 +1,16 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RiSparkling2Fill } from "react-icons/ri";
 import { GrSend } from "react-icons/gr";
+import classNames from "classnames";
 import { toast } from "react-toastify";
+import { useLocalStorage } from "react-use";
 import { MdPreview } from "react-icons/md";
 
+import Login from "../login/login";
 import { defaultHTML } from "./../../../utils/consts";
 import SuccessSound from "./../../assets/success.mp3";
+import Settings from "../settings/settings";
+import ProModal from "../pro-modal/pro-modal";
 
 function AskAI({
   html,
@@ -25,16 +29,40 @@ function AskAI({
   setView: React.Dispatch<React.SetStateAction<"editor" | "preview">>;
   setisAiWorking: React.Dispatch<React.SetStateAction<boolean>>;
 }) {
+  const [open, setOpen] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [hasAsked, setHasAsked] = useState(false);
   const [previousPrompt, setPreviousPrompt] = useState("");
+  const [provider, setProvider] = useLocalStorage("provider", "auto");
+  const [openProvider, setOpenProvider] = useState(false);
+  const [providerError, setProviderError] = useState("");
+  const [openProModal, setOpenProModal] = useState(false);
+  const [models, setModels] = useState<string[]>([]);
+  const [selectedModel, setSelectedModel] = useState<string>("");
 
   const audio = new Audio(SuccessSound);
   audio.volume = 0.5;
 
+  useEffect(() => {
+    // Fetch available models from backend
+    fetch("/api/models")
+      .then((res) => res.json())
+      .then((data) => {
+        const modelNames = data.map((model: any) => model.name);
+        setModels(modelNames);
+        if (modelNames.length > 0) {
+          setSelectedModel(modelNames[0]);
+        }
+      })
+      .catch(() => {
+        setModels([]);
+      });
+  }, []);
+
   const callAi = async () => {
     if (isAiWorking || !prompt.trim()) return;
     setisAiWorking(true);
+    setProviderError("");
 
     let contentResponse = "";
     let lastRenderTime = 0;
@@ -44,6 +72,8 @@ function AskAI({
         method: "POST",
         body: JSON.stringify({
           prompt,
+          provider,
+          model: selectedModel,
           ...(html === defaultHTML ? {} : { html }),
           ...(previousPrompt ? { previousPrompt } : {}),
         }),
@@ -51,15 +81,22 @@ function AskAI({
           "Content-Type": "application/json",
         },
       });
-      
       if (request && request.body) {
         if (!request.ok) {
           const res = await request.json();
-          toast.error(res.message);
+          if (res.openLogin) {
+            setOpen(true);
+          } else if (res.openSelectProvider) {
+            setOpenProvider(true);
+            setProviderError(res.message);
+          } else if (res.openProModal) {
+            setOpenProModal(true);
+          } else {
+            toast.error(res.message);
+          }
           setisAiWorking(false);
           return;
         }
-        
         const reader = request.body.getReader();
         const decoder = new TextDecoder("utf-8");
 
@@ -111,9 +148,14 @@ function AskAI({
 
         read();
       }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       setisAiWorking(false);
       toast.error(error.message);
+      if (error.openLogin) {
+        setOpen(true);
+      }
     }
   };
 
@@ -149,7 +191,27 @@ function AskAI({
             }
           }}
         />
+        <select
+          className="bg-pink-600 text-white rounded px-3 py-2 ml-4 font-semibold text-sm shadow-lg shadow-pink-500/50 hover:bg-pink-500 transition-colors duration-200"
+          value={selectedModel}
+          onChange={(e) => setSelectedModel(e.target.value)}
+          disabled={isAiWorking}
+          title="Select AI Model"
+        >
+          {models.map((model) => (
+            <option key={model} value={model}>
+              {model}
+            </option>
+          ))}
+        </select>
         <div className="flex items-center justify-end gap-2">
+          <Settings
+            provider={provider as string}
+            onChange={setProvider}
+            open={openProvider}
+            error={providerError}
+            onClose={setOpenProvider}
+          />
           <button
             disabled={isAiWorking}
             className="relative overflow-hidden cursor-pointer flex-none flex items-center justify-center rounded-full text-sm font-semibold size-8 text-center bg-pink-500 hover:bg-pink-400 text-white shadow-sm dark:shadow-highlight/20 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:hover:bg-gray-300"
@@ -159,6 +221,34 @@ function AskAI({
           </button>
         </div>
       </div>
+      <div
+        className={classNames(
+          "h-screen w-screen bg-black/20 fixed left-0 top-0 z-10",
+          {
+            "opacity-0 pointer-events-none": !open,
+          }
+        )}
+        onClick={() => setOpen(false)}
+      ></div>
+      <div
+        className={classNames(
+          "absolute top-0 -translate-y-[calc(100%+8px)] right-0 z-10 w-80 bg-white border border-gray-200 rounded-lg shadow-lg transition-all duration-75 overflow-hidden",
+          {
+            "opacity-0 pointer-events-none": !open,
+          }
+        )}
+      >
+        <Login html={html}>
+          <p className="text-gray-500 text-sm mb-3">
+            You reached the limit of free AI usage. Please login to continue.
+          </p>
+        </Login>
+      </div>
+      <ProModal
+        html={html}
+        open={openProModal}
+        onClose={() => setOpenProModal(false)}
+      />
     </div>
   );
 }
