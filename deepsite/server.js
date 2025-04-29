@@ -22,6 +22,26 @@ app.use(cookieParser());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, "dist")));
 
+// New endpoint to list available Gemini models
+app.get("/api/models", async (_req, res) => {
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`
+    );
+    if (!response.ok) {
+      return res.status(response.status).send({ error: "Failed to fetch models" });
+    }
+    const data = await response.json();
+    // Filter models that support generateContent
+    const models = data.models.filter(model =>
+      model.supportedGenerationMethods.includes("generateContent")
+    );
+    res.json(models);
+  } catch (error) {
+    res.status(500).send({ error: error.message });
+  }
+});
+
 app.post("/api/ask-ai", async (req, res) => {
   const { prompt, html, previousPrompt } = req.body;
   if (!prompt) {
