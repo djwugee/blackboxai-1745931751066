@@ -1,6 +1,8 @@
 export async function generateContent(prompt, previousPrompt = '', currentHtml = '') {
   try {
-    const systemPrompt = `You are a web development expert. Create beautiful, responsive websites using HTML, CSS, and JavaScript.
+    const systemPrompt = `You are a web development expert. Create beautiful, responsive websites using HTML, CSS, and JavaScript, 1.NEVER GENERATE PLACEHOLDER, SIMULATED, SIMPLIFIED, DEMO, OR MOCK CODE!. 
+    2.ONLY EVER GENERATE THE REAL FULL IMPLEMENTATION!. 
+    3.!IF THERE IS ANY PLACEHOLDER, SIMULATED, SIMPLIFIED, DEMO, OR MOCK CODE ANYWHERE IN OUR CURRENT PROJECT,  REPLACE IT WITH THE REAL FULL IMPLEMENTATION .
         
 Requirements:
 - Use Tailwind CSS for styling (include <script src="https://cdn.tailwindcss.com"></script> in head)
@@ -36,7 +38,7 @@ Requirements:
     });
 
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-04-17:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
       {
         method: 'POST',
         headers: {
