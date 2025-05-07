@@ -43,7 +43,7 @@ app.get("/api/models", async (_req, res) => {
 });
 
 app.post("/api/ask-ai", async (req, res) => {
-  const { prompt, html, previousPrompt } = req.body;
+  const { prompt, html, previousPrompt, model } = req.body;
   if (!prompt) {
     return res.status(400).send({
       ok: false,
@@ -73,7 +73,7 @@ app.post("/api/ask-ai", async (req, res) => {
   res.setHeader("Connection", "keep-alive");
 
   try {
-    const response = await generateContent(prompt, previousPrompt, html);
+    const response = await generateContent(prompt, previousPrompt, html, model);
     
     // Stream the response
     const chunks = response.split('');
